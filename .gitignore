@@ -1,12 +1,16 @@
 .env
 .env.*
+
 *.swp
 .*.swp
+
 __pycache__/
 *.py[cod]
 *$py.class
+
 venv/
 .venv/
 env/
+.gitignore
 .DS_Store
 Thumbs.db
