@@ -1,21 +1,16 @@
-# Environments & Credentials
 .env
 .env.*
 
-# Vim swap files (מנקה את הקבצים הזמניים כמו שיש לך כרגע)
 *.swp
 .*.swp
 
-# Python cache & bytecode
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environments
 venv/
 .venv/
 env/
-
-# OS generated files
+.gitignore
 .DS_Store
 Thumbs.db
