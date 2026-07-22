@@ -18,7 +18,10 @@ pipeline {
 
         stage('Code Check (Linting)') {
         steps {
-            sh 'docker run --rm -v $WORKSPACE:/app -w /app python:3.11-slim sh -c "pip install --quiet pylint && pylint --fail-under=5 main.py"'
+            sh  '''
+            pip3 install --quiet pylint
+            pylint *.py --fail-under=5
+        '''
         }
         }
 
