@@ -17,18 +17,12 @@ pipeline {
         }
 
         stage('Code Check (Linting)') {
-            steps {
-                echo 'Running Pylint in isolated Python container...'
-                sh '''
-                    docker run --rm -v $WORKSPACE:/app -w /app python:3.11-slim sh -c "
-                        pip install --quiet pylint
-                        SCORE=\$(pylint main.py --exit-zero | grep -oP 'rated at \\K[0-9.]+' || echo '0')
-                        echo \"Pylint score: \$SCORE\"
-
-                        python3 -c \"import sys; sys.exit(0 if float('\$SCORE') >= 5.0 else 1)\"
-                    "
-                '''
-            }
+        steps {
+            sh  '''
+            pip3 install --quiet pylint
+            pylint *.py --fail-under=5
+        '''
+        }
         }
 
         stage('Build Docker Image') {
