@@ -1,7 +1,7 @@
 pipeline {
     agent {
         node {
-            label 'aws-ec2' // ה-Label שהגדרת בתבנית ה-AMI למטה
+            label 'aws-ec2' 
         }
     }
 
