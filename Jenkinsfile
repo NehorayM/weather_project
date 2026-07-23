@@ -24,6 +24,24 @@ pipeline {
         }
         }
 
+
+        stage('Test Image') {
+        steps {
+            script {
+                try {
+                    echo 'Starting containers via Docker Compose...'
+                    sh 'docker compose up -d'
+
+                    sh 'sleep 5'
+
+                    sh 'curl --fail http://localhost:9090'
+                } finally {
+                    sh 'docker compose down -v'
+                }
+            }
+        }
+        }
+
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image...'
@@ -31,19 +49,5 @@ pipeline {
             }
         }
 
-        stage('Test Image') {
-            steps {
-                script {
-                    try {
-                        echo 'Starting containers via Docker Compose...'
-                        sh 'docker compose -f docker-compose.test.yml up -d'
-                        sh 'sleep 3'
-                        sh 'curl --fail http://localhost:8081'
-                    } finally {
-                        sh 'docker compose -f docker-compose.test.yml down -v'
-                    }
-                }
-            }
-        }
     }
 }
