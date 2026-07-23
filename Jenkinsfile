@@ -1,7 +1,7 @@
 pipeline {
     agent {
         node {
-            label 'aws-ec2' // ה-Label שהגדרת בתבנית ה-AMI למטה
+            label 'aws-ec2'
         }
     }
 
@@ -19,7 +19,6 @@ pipeline {
         stage('Code Check (Linting)') {
         steps {
             sh  '''
-            pip3 install --quiet pylint
             pylint *.py --fail-under=5
         '''
         }
