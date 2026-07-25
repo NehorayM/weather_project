@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         APP_NAME = 'weather-app'
-        DOCKER_HUB_USER = 'YOUR_DOCKER_HUB_USERNAME' // <--- החלף בשם המשתמש שלך ב-Docker Hub!
+        DOCKER_HUB_USER = 'nehoraymenashe'
     }
 
     stages {
