@@ -1,0 +1,6 @@
+services:
+  weather-app-test:
+    image: ${APP_NAME}:${BUILD_NUMBER}
+    ports:
+      - "9090:8000"
+    restart: "no"
