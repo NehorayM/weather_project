@@ -53,12 +53,12 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+    stage('Deploy') {
             steps {
                 script { env.IS_OPS = 'true' }
                 withCredentials([sshUserPrivateKey(credentialsId: 'target-ec2-ssh', keyFileVariable: 'KEY')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i \$KEY ubuntu@172.31.34.187'
+                        ssh -o StrictHostKeyChecking=no -i \$KEY ubuntu@172.31.34.187 '
                             if docker ps | grep -q app-8001; then
                                 NEW=8002; OLD=8001
                             else
@@ -76,7 +76,6 @@ pipeline {
                 }
             }
         }
-    }
 
     post {
         success {
