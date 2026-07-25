@@ -8,7 +8,11 @@ pipeline {
     }
 
     stages {
-        stage('Lint') { steps { sh 'pylint *.py --fail-under=5' } }
+        stage('code test') {
+        steps {
+        sh 'pylint *.py --fail-under=5'
+         }
+         }
 
         stage('Build') {
             steps {
