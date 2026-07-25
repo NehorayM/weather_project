@@ -40,11 +40,18 @@ pipeline {
                         echo 'Starting test environment via Docker Compose...'
                         sh 'docker compose -f docker-compose.test.yml up -d'
 
+                        echo 'Checking running containers...'
+                        sh 'docker ps -a'
+
                         echo 'Waiting for application to boot...'
                         sh 'sleep 5'
 
                         echo 'Testing endpoint reachability...'
                         sh 'curl --fail http://localhost:9090'
+                    } catch (Exception e) {
+                        echo '>>> TEST FAILED! Printing container logs for debugging:'
+                        sh 'docker compose -f docker-compose.test.yml logs'
+                        throw e
                     } finally {
                         echo 'Cleaning up test environment...'
                         sh 'docker compose -f docker-compose.test.yml down -v'
