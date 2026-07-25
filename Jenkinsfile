@@ -57,13 +57,13 @@ pipeline {
     post {
         success {
             withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
-                sh 'curl -X POST -H "Content-type: application/json" --data "{\"text\":\"✅ Build #${BUILD_NUMBER} Succeeded!\"}" $URL'
+                sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\":\"Build #${BUILD_NUMBER} Succeeded!\"}' \$URL"
             }
         }
         failure {
             script {
                 def targetHook = (env.IS_OPS == 'true') ? 'slack-webhook-failure' : 'slack-webhook-dev-failure'
-                def msg = (env.IS_OPS == 'true') ? "🚨 Ops Alert: Push failed (#${BUILD_NUMBER})" : "⚠️ Dev Alert: Build/Test failed (#${BUILD_NUMBER})"
+                def msg = (env.IS_OPS == 'true') ? "Ops Alert: Push failed (#${BUILD_NUMBER})" : "Dev Alert: Build/Test failed (#${BUILD_NUMBER})"
                 withCredentials([string(credentialsId: targetHook, variable: 'URL')]) {
                     sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
                 }
