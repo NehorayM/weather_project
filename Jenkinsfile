@@ -27,7 +27,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image: ${env.DOCKER_HUB_USER}/${env.APP_NAME}:${env.BUILD_NUMBER}"
-                sh "docker build -t ${env.APP_NAME}:${env.BUILD_NUMBER} ."
+                sh "docker build --no-cache -t ${env.APP_NAME}:${env.BUILD_NUMBER} ."
                 sh "docker tag ${env.APP_NAME}:${env.BUILD_NUMBER} ${env.DOCKER_HUB_USER}/${env.APP_NAME}:${env.BUILD_NUMBER}"
                 sh "docker tag ${env.APP_NAME}:${env.BUILD_NUMBER} ${env.DOCKER_HUB_USER}/${env.APP_NAME}:latest"
             }
