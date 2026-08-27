@@ -17,6 +17,9 @@ spec:
     - name: python
       image: python:3.11-slim
       command: ["sleep", "infinity"]
+      env:
+        - name: HOME
+          value: /tmp
       resources:
         requests: {cpu: "50m", memory: "128Mi"}
         limits: {cpu: "500m", memory: "512Mi"}
@@ -78,31 +81,22 @@ spec:
     stage('Version') {
       steps {
         script {
-          String detectedBranch = 'main'
+          String branch = env.gitlabBranch ?: env.gitlabSourceBranch ?: env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'main'
+          branch = branch.replaceAll('^refs/heads/', '').replaceAll('^origin/', '').replaceAll('^\\*/', '').trim()
+          if (!branch) { branch = 'main' }
 
-          if (env.gitlabBranch) {
-            detectedBranch = env.gitlabBranch
-          } else if (env.gitlabSourceBranch) {
-            detectedBranch = env.gitlabSourceBranch
-          } else if (env.GIT_BRANCH) {
-            detectedBranch = env.GIT_BRANCH
-          } else if (env.BRANCH_NAME) {
-            detectedBranch = env.BRANCH_NAME
-          }
-
-          detectedBranch = detectedBranch.replaceAll('^refs/heads/', '').replaceAll('^origin/', '').replaceAll('^\\*/', '').trim()
-          env.APP_BRANCH = detectedBranch ?: 'main'
+          env.APP_BRANCH = branch
 
           if (params.ROLLBACK_TAG?.trim()) {
             env.TAG = params.ROLLBACK_TAG.trim()
           } else {
-            String safeBranch = env.APP_BRANCH.replaceAll('/', '-')
+            String safeBranch = branch.replaceAll('/', '-')
             env.TAG = "${safeBranch}-${env.BUILD_NUMBER}"
           }
 
-          if (env.APP_BRANCH == 'main' || env.APP_BRANCH == 'master') {
+          if (branch == 'main' || branch == 'master') {
             env.TARGET_NS = 'weather-prod'
-          } else if (env.APP_BRANCH.startsWith('release/')) {
+          } else if (branch.startsWith('release/')) {
             env.TARGET_NS = 'weather-staging'
           } else {
             env.TARGET_NS = 'weather-dev'
@@ -117,7 +111,12 @@ spec:
       when { expression { !params.ROLLBACK_TAG } }
       steps {
         container('python') {
-          sh 'pip install --quiet pylint && pylint *.py --fail-under=5'
+          sh '''
+            export HOME=/tmp
+            export PATH=$PATH:/tmp/.local/bin
+            pip install --quiet --no-cache-dir pylint
+            pylint *.py --fail-under=5
+          '''
         }
       }
     }
