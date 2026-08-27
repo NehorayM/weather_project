@@ -78,8 +78,10 @@ spec:
     stage('Version') {
       steps {
         script {
-          def rawBranch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
-          env.BRANCH_NAME = rawBranch.replaceAll('^origin/', '')
+          String branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: (scm?.branches ? scm.branches[0].name : 'main')
+          branch = branch.replace('*/', '').replace('origin/', '').replace('refs/heads/', '').trim()
+          
+          env.BRANCH_NAME = branch ?: 'main'
 
           if (params.ROLLBACK_TAG) {
             env.TAG = params.ROLLBACK_TAG
@@ -162,7 +164,7 @@ spec:
       script {
         def isOps = (env.TARGET_NS == 'weather-prod' || env.TARGET_NS == 'weather-staging')
         def hook  = isOps ? 'slack-webhook-failure' : 'slack-webhook-dev-failure'
-        def msg   = "${isOps ? 'Ops alert' : 'Dev alert'}: ${env.BRANCH_NAME} ${env.TAG} failed"
+        def msg   = "${isOps ? 'Ops alert' : 'Dev alert'}: ${env.BRANCH_NAME ?: 'unknown'} ${env.TAG ?: 'untagged'} failed"
         withCredentials([string(credentialsId: hook, variable: 'URL')]) {
           sh "curl -sS -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
         }
