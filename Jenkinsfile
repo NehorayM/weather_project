@@ -1,34 +1,31 @@
 pipeline {
-    // set image for the build image and tools continers 
   agent {
     kubernetes {
-      cloud 'eks' // use the eks cloud configured in jenkins
-      namespace 'jenkins' // name space of the buid pod 
-      defaultContainer 'tools' // shell continer as defult for starting the commends
+      cloud 'eks'
+      namespace 'jenkins'
+      defaultContainer 'tools'
       yaml """
 apiVersion: v1
 kind: Pod
 spec:
-    #eks pod identity using the service account that i made him 
   serviceAccountName: jenkins-agent
   securityContext:
     runAsUser: 1000
     runAsGroup: 1000
     fsGroup: 1000
-    # 3  coniner on for the test of the code of the python one for the build of the image without dockerd and the 3 is the commendor of the force with the aws cli and kubectl
   containers:
     - name: python
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       resources:
-        requests: {cpu: "100m", memory: "256Mi"}
+        requests: {cpu: "50m", memory: "128Mi"}
         limits: {cpu: "500m", memory: "512Mi"}
     - name: buildah
       image: quay.io/buildah/stable:v1.40
       command: ["sleep", "infinity"]
       env:
         - name: BUILDAH_ISOLATION
-          value: chroot 
+          value: chroot
         - name: STORAGE_DRIVER
           value: vfs
       securityContext:
@@ -36,7 +33,7 @@ spec:
         capabilities:
           add: ["SETUID", "SETGID"]
       resources:
-        requests: {cpu: "500m", memory: "1Gi", ephemeral-storage: "4Gi"}
+        requests: {cpu: "100m", memory: "256Mi", ephemeral-storage: "2Gi"}
         limits: {cpu: "1500m", memory: "3Gi", ephemeral-storage: "10Gi"}
       volumeMounts:
         - name: layers
@@ -47,7 +44,7 @@ spec:
       image: alpine/k8s:1.31.0
       command: ["sleep", "infinity"]
       resources:
-        requests: {cpu: "100m", memory: "256Mi"}
+        requests: {cpu: "50m", memory: "128Mi"}
         limits: {cpu: "500m", memory: "512Mi"}
       volumeMounts:
         - name: shared
@@ -66,7 +63,10 @@ spec:
   }
 
   environment {
-    ECR_REPO = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
+    ECR_REPO    = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
+    BRANCH_NAME = ''
+    TAG         = ''
+    TARGET_NS   = ''
   }
 
   options {
@@ -75,22 +75,28 @@ spec:
   }
 
   stages {
-
     stage('Version') {
       steps {
         script {
-          if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME.startsWith('hotfix/')) {
+          def rawBranch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+          env.BRANCH_NAME = rawBranch.replaceAll('^origin/', '')
+
+          if (params.ROLLBACK_TAG) {
+            env.TAG = params.ROLLBACK_TAG
+          } else {
+            def safeBranch = env.BRANCH_NAME.replaceAll('/', '-')
+            env.TAG = "${safeBranch}-${env.BUILD_NUMBER}"
+          }
+
+          if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
             env.TARGET_NS = 'weather-prod'
           } else if (env.BRANCH_NAME.startsWith('release/')) {
             env.TARGET_NS = 'weather-staging'
-          } else if (env.BRANCH_NAME == 'develop') {
-            env.TARGET_NS = 'weather-dev'
           } else {
-            env.TARGET_NS = ''
+            env.TARGET_NS = 'weather-dev'
           }
 
-          env.TAG = params.ROLLBACK_TAG ?: "${readFile('VERSION').trim()}-${env.BUILD_NUMBER}"
-          currentBuild.displayName = "${env.BRANCH_NAME} ${env.TAG} -> ${env.TARGET_NS ?: 'no deploy'}"
+          echo "Branch: ${env.BRANCH_NAME} | Tag: ${env.TAG} | Target Namespace: ${env.TARGET_NS}"
         }
       }
     }
@@ -149,14 +155,14 @@ spec:
   post {
     success {
       withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
-        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${BRANCH_NAME} ${TAG} -> ${TARGET_NS ?: \'build only\'} succeeded\\"}" $URL'
+        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${BRANCH_NAME} ${TAG} -> ${TARGET_NS} succeeded\\"}" $URL'
       }
     }
     failure {
       script {
         def isOps = (env.TARGET_NS == 'weather-prod' || env.TARGET_NS == 'weather-staging')
         def hook  = isOps ? 'slack-webhook-failure' : 'slack-webhook-dev-failure'
-        def msg   = isOps ? "Ops alert: ${BRANCH_NAME} ${TAG} failed" : "Dev alert: ${BRANCH_NAME} ${TAG} failed"
+        def msg   = "${isOps ? 'Ops alert' : 'Dev alert'}: ${env.BRANCH_NAME} ${env.TAG} failed"
         withCredentials([string(credentialsId: hook, variable: 'URL')]) {
           sh "curl -sS -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
         }
