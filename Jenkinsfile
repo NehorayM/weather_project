@@ -27,10 +27,14 @@ spec:
       image: quay.io/buildah/stable:v1.40
       command: ["sleep", "infinity"]
       env:
+        - name: HOME
+          value: /tmp
         - name: BUILDAH_ISOLATION
           value: chroot
         - name: STORAGE_DRIVER
           value: vfs
+        - name: _CONTAINERS_USERNS_CONFIGURED
+          value: "done"
       securityContext:
         allowPrivilegeEscalation: true
         capabilities:
@@ -39,8 +43,6 @@ spec:
         requests: {cpu: "100m", memory: "256Mi", ephemeral-storage: "2Gi"}
         limits: {cpu: "1500m", memory: "3Gi", ephemeral-storage: "10Gi"}
       volumeMounts:
-        - name: layers
-          mountPath: /home/build/.local/share/containers
         - name: shared
           mountPath: /shared
     - name: tools
@@ -53,8 +55,6 @@ spec:
         - name: shared
           mountPath: /shared
   volumes:
-    - name: layers
-      emptyDir: { sizeLimit: 15Gi }
     - name: shared
       emptyDir: {}
 """
@@ -66,10 +66,7 @@ spec:
   }
 
   environment {
-    ECR_REPO   = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
-    APP_BRANCH = 'main'
-    TAG        = ''
-    TARGET_NS  = ''
+    ECR_REPO = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
   }
 
   options {
@@ -81,7 +78,7 @@ spec:
     stage('Version') {
       steps {
         script {
-          String branch = env.gitlabBranch ?: env.gitlabSourceBranch ?: env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'main'
+          def branch = env.gitlabBranch ?: env.gitlabSourceBranch ?: env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'main'
           branch = branch.replaceAll('^refs/heads/', '').replaceAll('^origin/', '').replaceAll('^\\*/', '').trim()
           if (!branch) { branch = 'main' }
 
@@ -90,7 +87,7 @@ spec:
           if (params.ROLLBACK_TAG?.trim()) {
             env.TAG = params.ROLLBACK_TAG.trim()
           } else {
-            String safeBranch = branch.replaceAll('/', '-')
+            def safeBranch = branch.replaceAll('/', '-')
             env.TAG = "${safeBranch}-${env.BUILD_NUMBER}"
           }
 
@@ -129,8 +126,9 @@ spec:
         }
         container('buildah') {
           sh '''
-            buildah login -u AWS --password-stdin ${ECR_REPO%%/*} < /shared/ecr.token
-            buildah bud --build-arg APP_VERSION=${TAG} -t ${ECR_REPO}:${TAG} .
+            mkdir -p /tmp/containers/storage /tmp/containers/runroot
+            buildah --storage-driver vfs --root /tmp/containers/storage --runroot /tmp/containers/runroot login -u AWS --password-stdin ${ECR_REPO%%/*} < /shared/ecr.token
+            buildah --storage-driver vfs --root /tmp/containers/storage --runroot /tmp/containers/runroot bud --isolation chroot --build-arg APP_VERSION=${TAG} -t ${ECR_REPO}:${TAG} .
           '''
         }
       }
@@ -145,7 +143,9 @@ spec:
       }
       steps {
         container('buildah') {
-          sh 'buildah push ${ECR_REPO}:${TAG}'
+          sh '''
+            buildah --storage-driver vfs --root /tmp/containers/storage --runroot /tmp/containers/runroot push ${ECR_REPO}:${TAG}
+          '''
         }
       }
     }
