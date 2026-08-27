@@ -1,6 +1,5 @@
 services:
-  weather-app-test:
-    image: ${APP_NAME}:${BUILD_NUMBER}
+  weather-test:
+    image: ${APP_NAME}:${TAG}
     ports:
       - "9090:8000"
-    restart: "no"
