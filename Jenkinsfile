@@ -63,10 +63,10 @@ spec:
   }
 
   environment {
-    ECR_REPO    = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
-    BRANCH_NAME = ''
-    TAG         = ''
-    TARGET_NS   = ''
+    ECR_REPO   = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
+    APP_BRANCH = 'main'
+    TAG        = ''
+    TARGET_NS  = ''
   }
 
   options {
@@ -78,27 +78,37 @@ spec:
     stage('Version') {
       steps {
         script {
-          String branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: (scm?.branches ? scm.branches[0].name : 'main')
-          branch = branch.replace('*/', '').replace('origin/', '').replace('refs/heads/', '').trim()
-          
-          env.BRANCH_NAME = branch ?: 'main'
+          String detectedBranch = 'main'
 
-          if (params.ROLLBACK_TAG) {
-            env.TAG = params.ROLLBACK_TAG
+          if (env.gitlabBranch) {
+            detectedBranch = env.gitlabBranch
+          } else if (env.gitlabSourceBranch) {
+            detectedBranch = env.gitlabSourceBranch
+          } else if (env.GIT_BRANCH) {
+            detectedBranch = env.GIT_BRANCH
+          } else if (env.BRANCH_NAME) {
+            detectedBranch = env.BRANCH_NAME
+          }
+
+          detectedBranch = detectedBranch.replaceAll('^refs/heads/', '').replaceAll('^origin/', '').replaceAll('^\\*/', '').trim()
+          env.APP_BRANCH = detectedBranch ?: 'main'
+
+          if (params.ROLLBACK_TAG?.trim()) {
+            env.TAG = params.ROLLBACK_TAG.trim()
           } else {
-            def safeBranch = env.BRANCH_NAME.replaceAll('/', '-')
+            String safeBranch = env.APP_BRANCH.replaceAll('/', '-')
             env.TAG = "${safeBranch}-${env.BUILD_NUMBER}"
           }
 
-          if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
+          if (env.APP_BRANCH == 'main' || env.APP_BRANCH == 'master') {
             env.TARGET_NS = 'weather-prod'
-          } else if (env.BRANCH_NAME.startsWith('release/')) {
+          } else if (env.APP_BRANCH.startsWith('release/')) {
             env.TARGET_NS = 'weather-staging'
           } else {
             env.TARGET_NS = 'weather-dev'
           }
 
-          echo "Branch: ${env.BRANCH_NAME} | Tag: ${env.TAG} | Target Namespace: ${env.TARGET_NS}"
+          echo "Branch: ${env.APP_BRANCH} | Tag: ${env.TAG} | Namespace: ${env.TARGET_NS}"
         }
       }
     }
@@ -157,14 +167,16 @@ spec:
   post {
     success {
       withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
-        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${BRANCH_NAME} ${TAG} -> ${TARGET_NS} succeeded\\"}" $URL'
+        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${APP_BRANCH} ${TAG} -> ${TARGET_NS} succeeded\\"}" $URL'
       }
     }
     failure {
       script {
         def isOps = (env.TARGET_NS == 'weather-prod' || env.TARGET_NS == 'weather-staging')
         def hook  = isOps ? 'slack-webhook-failure' : 'slack-webhook-dev-failure'
-        def msg   = "${isOps ? 'Ops alert' : 'Dev alert'}: ${env.BRANCH_NAME ?: 'unknown'} ${env.TAG ?: 'untagged'} failed"
+        def bName = env.APP_BRANCH ?: 'unknown'
+        def tName = env.TAG ?: 'untagged'
+        def msg   = "${isOps ? 'Ops alert' : 'Dev alert'}: ${bName} ${tName} failed"
         withCredentials([string(credentialsId: hook, variable: 'URL')]) {
           sh "curl -sS -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
         }
