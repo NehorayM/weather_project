@@ -1,9 +1,7 @@
-# three replicas is what makes the rolling update observable - one is replaced
-# while the other two keep serving
+
 replicaCount: 3
 
 image:
-  # the pipeline rewrites this line on every build to main
   tag: "bootstrap"
 
 ingress:
