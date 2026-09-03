@@ -1,0 +1,53 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: weather-app
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # public. an internal-facing ALB would go in the private subnets instead
+    alb.ingress.kubernetes.io/scheme: internet-facing
+
+    # register pod IPs, not node ports. fewer hops, and the health check reaches
+    # the pod itself rather than a node that might not be hosting one
+    alb.ingress.kubernetes.io/target-type: ip
+
+    # THE important one. every ingress with this group name shares a single ALB.
+    # six ingresses, one load balancer, one bill
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName }}
+
+    # rule ordering within the shared load balancer
+    alb.ingress.kubernetes.io/group.order: "{{ .Values.ingress.groupOrder }}"
+
+    # pinning the name lets terraform look the ALB up later for DNS records
+    alb.ingress.kubernetes.io/load-balancer-name: weather-k8s-alb
+
+    # use the security group terraform already manages, instead of letting the
+    # controller invent one. that is what keeps the EC2 rules in block 5 working
+    alb.ingress.kubernetes.io/security-groups: {{ .Values.ingress.securityGroupId }}
+
+    # because we named the security group ourselves, we have to tell the
+    # controller it may still manage the rules between the ALB and the backends
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
+
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+
+    # anything arriving on 80 is redirected to 443 by the load balancer itself
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn }}
+
+    # checked against each pod. must return 200 or the target leaves rotation
+    alb.ingress.kubernetes.io/healthcheck-path: /version
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: weather-app
+                port:
+                  number: {{ .Values.service.port }}
