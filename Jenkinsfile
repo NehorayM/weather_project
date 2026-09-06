@@ -107,7 +107,7 @@ spec:
       }
     }
 
-    stage('Build & Test') {
+stage('Build & Test') {
       steps {
         container('tools') {
           sh 'aws ecr get-login-password --region eu-north-1 > /shared/ecr.token'
@@ -115,12 +115,16 @@ spec:
         container('buildah') {
           sh '''
             set -e
-            buildah login -u AWS --password-stdin ${ECR_REPO%%/*} < /shared/ecr.token
-            buildah bud --build-arg APP_VERSION=${TAG} -t ${ECR_REPO}:${TAG} .
+            export BCMD="buildah --storage-driver vfs --root /tmp/containers/storage --runroot /tmp/containers/runroot"
+
+            mkdir -p /tmp/containers/storage /tmp/containers/runroot
+
+            $BCMD login -u AWS --password-stdin ${ECR_REPO%%/*} < /shared/ecr.token
+            $BCMD bud --isolation chroot --build-arg APP_VERSION=${TAG} -t ${ECR_REPO}:${TAG} .
 
             echo "===> Running Container Health Check..."
-            CTR=$(buildah from ${ECR_REPO}:${TAG})
-            buildah run $CTR python app.py &
+            CTR=$($BCMD from ${ECR_REPO}:${TAG})
+            $BCMD run $CTR python app.py &
             APP_PID=$!
             sleep 4
 
@@ -129,12 +133,12 @@ spec:
             else
               echo "Health Check FAILED: Container did not respond as expected"
               kill -9 $APP_PID 2>/dev/null || true
-              buildah rm $CTR 2>/dev/null || true
+              $BCMD rm $CTR 2>/dev/null || true
               exit 1
             fi
 
             kill -9 $APP_PID 2>/dev/null || true
-            buildah rm $CTR 2>/dev/null || true
+            $BCMD rm $CTR 2>/dev/null || true
           '''
         }
       }
@@ -144,7 +148,9 @@ spec:
       when { expression { env.VALUES_FILE != '' } }
       steps {
         container('buildah') {
-          sh 'buildah push ${ECR_REPO}:${TAG}'
+          sh '''
+            buildah --storage-driver vfs --root /tmp/containers/storage --runroot /tmp/containers/runroot push ${ECR_REPO}:${TAG}
+          '''
         }
       }
     }
