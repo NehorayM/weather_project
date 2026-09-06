@@ -7,8 +7,9 @@ from datetime import datetime,timedelta
 from flask import Flask, render_template, request, redirect, url_for
 import requests
 import pycountry
-from world_capitals import world_capitals
 import os
+import socket
+from world_capitals import world_capitals
 from dotenv import load_dotenv
 
 """api for get the country name"""
@@ -29,6 +30,12 @@ app = Flask(__name__)
 def hello():
     """main page"""
     return render_template("./index.html")
+
+@app.route("/version")
+def version():
+    return {"version": os.environ.get("APP_VERSION", "unknown"),
+            "host": socket.gethostname()}
+
 
 """using methods post http method for sending the data of the user to the webserver"""
 @app.route("/search", methods=["POST"])
