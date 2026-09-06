@@ -105,8 +105,25 @@ spec:
         }
         container('buildah') {
           sh '''
-            buildah login -u AWS --password-stdin ${ECR_REPO%%/*} < /shared/ecr.token
-            buildah bud --build-arg APP_VERSION=${TAG} -t ${ECR_REPO}:${TAG} .
+            set -e
+            CTR=$(buildah from ${ECR_REPO}:${TAG})
+            buildah run $CTR python app.py &
+            APP_PID=$!
+            sleep 6
+
+            echo "Executing Health Check via curl"
+            if curl -s -f http://127.0.0.1:5000/ > /dev/null; then
+              echo " Health Check PASSED: Container is responding with 200 OK"
+            else
+              echo " Health Check FAILED: Container did not respond as expected"
+              kill -9 $APP_PID 2>/dev/null || true
+              buildah rm $CTR 2>/dev/null || true
+              exit 1
+            fi
+
+            echo "cleanup..."
+            kill -9 $APP_PID 2>/dev/null || true
+            buildah rm $CTR 2>/dev/null || true
           '''
         }
       }
