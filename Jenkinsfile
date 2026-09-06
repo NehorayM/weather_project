@@ -184,11 +184,14 @@ stage('Build & Test') {
       }
     }
   }
-
-  post {
+post {
     success {
-      withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
-        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${CURRENT_BRANCH} ${TAG} -> ${VALUES_FILE ?: \'build only\'} succeeded\\"}" $URL'
+      script {
+        def deployTarget = env.VALUES_FILE ?: 'build only'
+        def msg = "${env.CURRENT_BRANCH} ${env.TAG} -> ${deployTarget} succeeded"
+        withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
+          sh "curl -sS -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
+        }
       }
     }
     failure {
@@ -202,4 +205,3 @@ stage('Build & Test') {
       }
     }
   }
-}
