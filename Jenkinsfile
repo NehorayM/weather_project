@@ -74,18 +74,22 @@ spec:
     stage('Version') {
       steps {
         script {
-          if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME.startsWith('hotfix/')) {
+          // זיהוי בטוח של הענף גם ב-Pipeline רגיל וגם ב-Multibranch
+          def branch = env.BRANCH_NAME ?: (env.GIT_BRANCH ? env.GIT_BRANCH.replaceFirst('^origin/', '') : 'main')
+          env.CURRENT_BRANCH = branch
+
+          if (branch == 'main' || branch.startsWith('hotfix/')) {
             env.VALUES_FILE = 'values-prod.yaml'
-          } else if (env.BRANCH_NAME.startsWith('release/')) {
+          } else if (branch.startsWith('release/')) {
             env.VALUES_FILE = 'values-staging.yaml'
-          } else if (env.BRANCH_NAME == 'develop') {
+          } else if (branch == 'develop') {
             env.VALUES_FILE = 'values-dev.yaml'
           } else {
             env.VALUES_FILE = ''
           }
 
           env.TAG = "${readFile('VERSION').trim()}-${env.BUILD_NUMBER}"
-          currentBuild.displayName = "${env.BRANCH_NAME} ${env.TAG} -> ${env.VALUES_FILE ?: 'no deploy'}"
+          currentBuild.displayName = "${branch} ${env.TAG} -> ${env.VALUES_FILE ?: 'no deploy'}"
         }
       }
     }
@@ -98,7 +102,7 @@ spec:
       }
     }
 
-    stage('Build') {
+    stage('Build & Test') {
       steps {
         container('tools') {
           sh 'aws ecr get-login-password --region eu-north-1 > /shared/ecr.token'
@@ -106,22 +110,24 @@ spec:
         container('buildah') {
           sh '''
             set -e
+            buildah login -u AWS --password-stdin ${ECR_REPO%%/*} < /shared/ecr.token
+            buildah bud --build-arg APP_VERSION=${TAG} -t ${ECR_REPO}:${TAG} .
+
+            echo "===> Running Container Health Check..."
             CTR=$(buildah from ${ECR_REPO}:${TAG})
             buildah run $CTR python app.py &
             APP_PID=$!
-            sleep 6
+            sleep 4
 
-            echo "Executing Health Check via curl"
             if curl -s -f http://127.0.0.1:5000/ > /dev/null; then
-              echo " Health Check PASSED: Container is responding with 200 OK"
+              echo "Health Check PASSED: Container responded with 200 OK"
             else
-              echo " Health Check FAILED: Container did not respond as expected"
+              echo "Health Check FAILED: Container did not respond as expected"
               kill -9 $APP_PID 2>/dev/null || true
               buildah rm $CTR 2>/dev/null || true
               exit 1
             fi
 
-            echo "cleanup..."
             kill -9 $APP_PID 2>/dev/null || true
             buildah rm $CTR 2>/dev/null || true
           '''
@@ -171,14 +177,14 @@ spec:
   post {
     success {
       withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
-        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${BRANCH_NAME} ${TAG} -> ${VALUES_FILE ?: \'build only\'} succeeded\\"}" $URL'
+        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${CURRENT_BRANCH} ${TAG} -> ${VALUES_FILE ?: \'build only\'} succeeded\\"}" $URL'
       }
     }
     failure {
       script {
         def isOps = (env.VALUES_FILE == 'values-prod.yaml' || env.VALUES_FILE == 'values-staging.yaml')
         def hook  = isOps ? 'slack-webhook-failure' : 'slack-webhook-dev-failure'
-        def msg   = isOps ? "Ops alert: ${BRANCH_NAME} ${TAG} failed" : "Dev alert: ${BRANCH_NAME} ${TAG} failed"
+        def msg   = isOps ? "Ops alert: ${env.CURRENT_BRANCH} ${env.TAG} failed" : "Dev alert: ${env.CURRENT_BRANCH} ${env.TAG} failed"
         withCredentials([string(credentialsId: hook, variable: 'URL')]) {
           sh "curl -sS -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
         }
