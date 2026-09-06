@@ -5,7 +5,7 @@ pipeline {
       namespace 'jenkins'
       defaultContainer 'tools'
       yaml """
-apiVersion: v1
+apiVersion: v1 
 kind: Pod
 spec:
   serviceAccountName: jenkins-agent
@@ -17,18 +17,15 @@ spec:
     - name: python
       image: python:3.11-slim
       command: ["sleep", "infinity"]
-      env:
-        - name: HOME
-          value: /tmp
       resources:
-        requests: {cpu: "50m", memory: "128Mi"}
+        requests: {cpu: "100m", memory: "256Mi"}
         limits: {cpu: "500m", memory: "512Mi"}
     - name: buildah
       image: quay.io/buildah/stable:v1.40
       command: ["sleep", "infinity"]
       env:
         - name: BUILDAH_ISOLATION
-          value: chroot
+          value: chroot 
         - name: STORAGE_DRIVER
           value: vfs
       securityContext:
@@ -36,8 +33,8 @@ spec:
         capabilities:
           add: ["SETUID", "SETGID"]
       resources:
-        requests: {cpu: "100m", memory: "256Mi", ephemeral-storage: "2Gi"}
-        limits: {cpu: "1500m", memory: "3Gi", ephemeral-storage: "10Gi"}
+        requests: {cpu: "500m", memory: "1Gi", ephemeral-storage: "4Gi"}
+        limits: {cpu: "1500m", memory: "2Gi", ephemeral-storage: "10Gi"}
       volumeMounts:
         - name: layers
           mountPath: /home/build/.local/share/containers
@@ -47,7 +44,7 @@ spec:
       image: alpine/k8s:1.31.0
       command: ["sleep", "infinity"]
       resources:
-        requests: {cpu: "50m", memory: "128Mi"}
+        requests: {cpu: "100m", memory: "256Mi"}
         limits: {cpu: "500m", memory: "512Mi"}
       volumeMounts:
         - name: shared
@@ -61,15 +58,10 @@ spec:
     }
   }
 
-  parameters {
-    string(name: 'ROLLBACK_TAG', defaultValue: '', description: 'e.g. 1.1.0-15 (empty = normal build)')
-  }
-
   environment {
     ECR_REPO   = '225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather'
-    APP_BRANCH = 'main'
-    TAG        = ''
-    TARGET_NS  = ''
+    AWS_REGION = 'eu-north-1'
+    CHART_REPO = '10.0.3.92:8000/whetherappgroup/weather-app-chart.git'
   }
 
   options {
@@ -78,51 +70,35 @@ spec:
   }
 
   stages {
+
     stage('Version') {
       steps {
         script {
-          String branch = env.gitlabBranch ?: env.gitlabSourceBranch ?: env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'main'
-          branch = branch.replaceAll('^refs/heads/', '').replaceAll('^origin/', '').replaceAll('^\\*/', '').trim()
-          if (!branch) { branch = 'main' }
-
-          env.APP_BRANCH = branch
-
-          if (params.ROLLBACK_TAG?.trim()) {
-            env.TAG = params.ROLLBACK_TAG.trim()
+          if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME.startsWith('hotfix/')) {
+            env.VALUES_FILE = 'values-prod.yaml'
+          } else if (env.BRANCH_NAME.startsWith('release/')) {
+            env.VALUES_FILE = 'values-staging.yaml'
+          } else if (env.BRANCH_NAME == 'develop') {
+            env.VALUES_FILE = 'values-dev.yaml'
           } else {
-            String safeBranch = branch.replaceAll('/', '-')
-            env.TAG = "${safeBranch}-${env.BUILD_NUMBER}"
+            env.VALUES_FILE = ''
           }
 
-          if (branch == 'main' || branch == 'master') {
-            env.TARGET_NS = 'weather-prod'
-          } else if (branch.startsWith('release/')) {
-            env.TARGET_NS = 'weather-staging'
-          } else {
-            env.TARGET_NS = 'weather-dev'
-          }
-
-          echo "Branch: ${env.APP_BRANCH} | Tag: ${env.TAG} | Namespace: ${env.TARGET_NS}"
+          env.TAG = "${readFile('VERSION').trim()}-${env.BUILD_NUMBER}"
+          currentBuild.displayName = "${env.BRANCH_NAME} ${env.TAG} -> ${env.VALUES_FILE ?: 'no deploy'}"
         }
       }
     }
 
     stage('Lint') {
-      when { expression { !params.ROLLBACK_TAG } }
       steps {
         container('python') {
-          sh '''
-            export HOME=/tmp
-            export PATH=$PATH:/tmp/.local/bin
-            pip install --quiet --no-cache-dir pylint
-            pylint *.py --fail-under=5
-          '''
+          sh 'pip install --quiet pylint && pylint *.py --fail-under=5'
         }
       }
     }
 
     stage('Build') {
-      when { expression { !params.ROLLBACK_TAG } }
       steps {
         container('tools') {
           sh 'aws ecr get-login-password --region eu-north-1 > /shared/ecr.token'
@@ -137,12 +113,7 @@ spec:
     }
 
     stage('Push') {
-      when {
-        allOf {
-          expression { !params.ROLLBACK_TAG }
-          expression { env.TARGET_NS != '' }
-        }
-      }
+      when { expression { env.VALUES_FILE != '' } }
       steps {
         container('buildah') {
           sh 'buildah push ${ECR_REPO}:${TAG}'
@@ -150,14 +121,31 @@ spec:
       }
     }
 
-    stage('Deploy') {
-      when { expression { env.TARGET_NS != '' } }
+    stage('Update chart') {
+      when { expression { env.VALUES_FILE != '' } }
       steps {
         container('tools') {
-          sh '''
-            kubectl -n ${TARGET_NS} set image deployment/weather-app weather-app=${ECR_REPO}:${TAG}
-            kubectl -n ${TARGET_NS} rollout status deployment/weather-app --timeout=300s
-          '''
+          withCredentials([usernamePassword(
+            credentialsId: 'gitlab-chart-repo',
+            usernameVariable: 'GIT_USER',
+            passwordVariable: 'GIT_TOKEN')]) {
+            sh '''
+              set -e
+              rm -rf chart-repo
+              git clone http://${GIT_USER}:${GIT_TOKEN}@${CHART_REPO} chart-repo
+              cd chart-repo
+              yq -i ".image.tag = \\"${TAG}\\"" ${VALUES_FILE}
+              git config user.email "jenkins@nehorai-menashe.click"
+              git config user.name "jenkins"
+              git add ${VALUES_FILE}
+              if git diff --cached --quiet; then
+                echo "no change to ${VALUES_FILE}, nothing to commit"
+                exit 0
+              fi
+              git commit -m "${VALUES_FILE}: ${TAG}"
+              git push origin main
+            '''
+          }
         }
       }
     }
@@ -166,16 +154,14 @@ spec:
   post {
     success {
       withCredentials([string(credentialsId: 'slack-webhook-success', variable: 'URL')]) {
-        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${APP_BRANCH} ${TAG} -> ${TARGET_NS} succeeded\\"}" $URL'
+        sh 'curl -sS -X POST -H "Content-type: application/json" --data "{\\"text\\":\\"${BRANCH_NAME} ${TAG} -> ${VALUES_FILE ?: \'build only\'} succeeded\\"}" $URL'
       }
     }
     failure {
       script {
-        def isOps = (env.TARGET_NS == 'weather-prod' || env.TARGET_NS == 'weather-staging')
+        def isOps = (env.VALUES_FILE == 'values-prod.yaml' || env.VALUES_FILE == 'values-staging.yaml')
         def hook  = isOps ? 'slack-webhook-failure' : 'slack-webhook-dev-failure'
-        def bName = env.APP_BRANCH ?: 'unknown'
-        def tName = env.TAG ?: 'untagged'
-        def msg   = "${isOps ? 'Ops alert' : 'Dev alert'}: ${bName} ${tName} failed"
+        def msg   = isOps ? "Ops alert: ${BRANCH_NAME} ${TAG} failed" : "Dev alert: ${BRANCH_NAME} ${TAG} failed"
         withCredentials([string(credentialsId: hook, variable: 'URL')]) {
           sh "curl -sS -X POST -H 'Content-type: application/json' --data '{\"text\":\"${msg}\"}' \$URL"
         }
