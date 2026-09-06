@@ -124,11 +124,11 @@ stage('Build & Test') {
 
             echo "===> Running Container Health Check..."
             CTR=$($BCMD from ${ECR_REPO}:${TAG})
-            $BCMD run $CTR python app.py &
+            $BCMD run $CTR gunicorn --bind 0.0.0.0:8000 main:app &
             APP_PID=$!
             sleep 4
 
-            if curl -s -f http://127.0.0.1:5000/ > /dev/null; then
+            if curl -s -f http://127.0.0.1:8000/ > /dev/null; then
               echo "Health Check PASSED: Container responded with 200 OK"
             else
               echo "Health Check FAILED: Container did not respond as expected"
