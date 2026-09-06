@@ -97,7 +97,12 @@ spec:
     stage('Lint') {
       steps {
         container('python') {
-          sh 'pip install --quiet pylint && pylint *.py --fail-under=5'
+          sh '''
+            export HOME=/tmp
+            export PATH=$PATH:/tmp/.local/bin
+            pip install --quiet --no-cache-dir pylint
+            pylint *.py --fail-under=5
+          '''
         }
       }
     }
