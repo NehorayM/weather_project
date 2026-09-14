@@ -23,7 +23,7 @@ metadata:
 
     # use the security group terraform already manages, instead of letting the
     # controller invent one. that is what keeps the EC2 rules in block 5 working
-    alb.ingress.kubernetes.io/security-groups: {{ .Values.ingress.securityGroupId }}
+    alb.ingress.kubernetes.io/security-groups: "sg-05aba94e9f4b7879b"
 
     # because we named the security group ourselves, we have to tell the
     # controller it may still manage the rules between the ALB and the backends
@@ -34,7 +34,7 @@ metadata:
     # anything arriving on 80 is redirected to 443 by the load balancer itself
     alb.ingress.kubernetes.io/ssl-redirect: "443"
 
-    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn }}
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-north-1:225317159123:certificate/5e4939fc-e667-41cc-a7cb-dd1a0a3f9db2"
 
     # checked against each pod. must return 200 or the target leaves rotation
     alb.ingress.kubernetes.io/healthcheck-path: /version
