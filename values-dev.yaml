@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  tag: "bootstrap"
+  tag: "1.0.2"
 
 ingress:
   host: dev.nehorai-menashe.click

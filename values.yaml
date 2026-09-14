@@ -1,7 +1,7 @@
 image:
   repository: 225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather
   # the pipeline rewrites this in the per-environment files, never here
-  tag: "bootstrap"
+  tag: "1.0.2"
   # Always is wrong with immutable tags. a tag can never change meaning, so
   # pulling again on every restart is wasted time
   pullPolicy: IfNotPresent
