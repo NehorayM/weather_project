@@ -27,7 +27,7 @@ ingress:
   groupName: weather
   groupOrder: 10
   # paste: terraform output -raw certificate_arn
-  certificateArn: "arn:aws:acm:eu-north-1:225317159123:certificate/b49da700-ef4e-4cd3-a020-ab10fcfee583"
+  certificateArn: "arn:aws:acm:eu-north-1:225317159123:certificate/5e4939fc-e667-41cc-a7cb-dd1a0a3f9db2"
   # paste: terraform output -raw alb_security_group_id
   securityGroupId: "sg-05aba94e9f4b7879b"
 
