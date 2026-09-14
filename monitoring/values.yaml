@@ -165,7 +165,7 @@ grafana:
       alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
       alb.ingress.kubernetes.io/ssl-redirect: "443"
-      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-north-1:225317159123:certificate/b49da700-ef4e-4cd3-a020-ab10fcfee583
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-north-1:225317159123:certificate/5e4939fc-e667-41cc-a7cb-dd1a0a3f9db2
       # grafana answers this without authentication
       alb.ingress.kubernetes.io/healthcheck-path: /api/health
       # after weather 10, staging 20, dev 30, argocd 40
