@@ -51,3 +51,7 @@ config:
 # a Secret that already exists in the namespace, created by terraform.
 # the chart never contains the value
 existingSecret: weather-app-secrets
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  sampleLimit: 5000
