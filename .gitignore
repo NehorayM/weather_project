@@ -1,0 +1,11 @@
+.env
+.env.*
+.idea/
+__pycache__/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
+tfplan
