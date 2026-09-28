@@ -1,0 +1,19 @@
+
+replicaCount: 3
+image:
+  tag: "1.0.2"
+ingress:
+  host: weather.nehorai-menashe.click
+  groupOrder: 10
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+config:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "WARNING"
+  APP_TITLE: "Weather App"
+  BACKGROUND_COLOR: "#1B3A6B"

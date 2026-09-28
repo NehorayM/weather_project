@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # fixed name, not templated. must match what terraform created so ArgoCD
+  # adopts the running object instead of failing on an immutable field
+  name: weather-app
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: weather-app
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      # IMMUTABLE. must stay exactly as terraform created it
+      app: weather-app
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # one extra pod may exist during a rollout
+      maxSurge: 1
+      # and none may be missing. this is the zero-downtime guarantee - a new pod
+      # must pass readiness and join the endpoints before an old one goes away
+      maxUnavailable: 0
+
+  template:
+    metadata:
+      labels:
+        app: weather-app
+      annotations:
+        # a Deployment does NOT restart when a ConfigMap changes. this checksum
+        # changes when the rendered ConfigMap changes, which changes the pod
+        # template, which triggers a rollout. without it, config edits do nothing
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: weather-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.containerPort }}
+
+          envFrom:
+            # non-sensitive settings
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+            # the API key, from a Secret this chart does not create
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+
+          # readiness is the real gate. the ALB health check and maxUnavailable: 0
+          # both depend on it being honest about whether the app can serve
+          readinessProbe:
+            httpGet:
+              path: /version
+              port: {{ .Values.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+
+          # restarts a pod that is alive but stuck. slower and more forgiving
+          # than readiness on purpose - a false positive here kills a pod
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: {{ .Values.containerPort }}
+            initialDelaySeconds: 20
+            periodSeconds: 15
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]

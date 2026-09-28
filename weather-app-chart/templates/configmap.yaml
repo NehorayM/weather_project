@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # .Release.Name is the ArgoCD application name, so each environment gets its own
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  # renders the whole config block from values, so adding a setting is a
+  # one-line change in a values file and nothing here has to be touched
+  {{- toYaml .Values.config | nindent 2 }}

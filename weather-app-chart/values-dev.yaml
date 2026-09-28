@@ -1,0 +1,14 @@
+replicaCount: 1
+
+image:
+  tag: "1.0.2"
+
+ingress:
+  host: dev.nehorai-menashe.click
+  groupOrder: 30
+
+config:
+  ENVIRONMENT: "development"
+  LOG_LEVEL: "DEBUG"
+  APP_TITLE: "Weather App - Dev"
+  BACKGROUND_COLOR: "#14425C"

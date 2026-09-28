@@ -1,0 +1,57 @@
+image:
+  repository: 225317159123.dkr.ecr.eu-north-1.amazonaws.com/weather
+  # the pipeline rewrites this in the per-environment files, never here
+  tag: "1.0.2"
+  # Always is wrong with immutable tags. a tag can never change meaning, so
+  # pulling again on every restart is wasted time
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# the port your Flask app listens on inside the container
+containerPort: 8000
+
+service:
+  # ClusterIP. the load balancer targets pod IPs directly, so nothing needs a
+  # port opened on the node
+  type: ClusterIP
+  port: 80
+
+ingress:
+  # hands the object to the AWS load balancer controller rather than any other
+  className: alb
+  # overridden per environment
+  host: ""
+  # every ingress carrying this group name lands on the SAME load balancer.
+  # without it you would get one ALB per hostname
+  groupName: weather
+  groupOrder: 10
+  # paste: terraform output -raw certificate_arn
+  certificateArn: "arn:aws:acm:eu-north-1:225317159123:certificate/5e4939fc-e667-41cc-a7cb-dd1a0a3f9db2"
+  # paste: terraform output -raw alb_security_group_id
+  securityGroupId: "sg-05aba94e9f4b7879b"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+# non-sensitive settings, delivered through a ConfigMap
+config:
+  ENVIRONMENT: "dev"
+  LOG_LEVEL: "INFO"
+  APP_TITLE: "Weather App"
+  # requirement 4 wants a visible change. driving it from here proves the
+  # config path works, not just the image path
+  BACKGROUND_COLOR: "#1B3A6B"
+
+# a Secret that already exists in the namespace, created by terraform.
+# the chart never contains the value
+existingSecret: weather-app-secrets
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  sampleLimit: 5000

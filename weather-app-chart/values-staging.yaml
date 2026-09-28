@@ -1,0 +1,18 @@
+# one pod. staging answers "does it start and respond", not "does it survive a
+# rollout". three would triple the memory on one node for no extra signal
+replicaCount: 1
+
+image:
+  tag: "1.0.2"
+
+ingress:
+  host: staging.nehorai-menashe.click
+  groupOrder: 20
+
+config:
+  ENVIRONMENT: "staging"
+  LOG_LEVEL: "INFO"
+  APP_TITLE: "Weather App - Staging"
+  # a different colour per environment means you can tell at a glance which
+  # one you are looking at
+  BACKGROUND_COLOR: "#5A3A14"
