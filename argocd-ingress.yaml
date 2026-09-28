@@ -9,10 +9,9 @@ metadata:
     alb.ingress.kubernetes.io/group.name: weather
     alb.ingress.kubernetes.io/group.order: "40"
     alb.ingress.kubernetes.io/load-balancer-name: weather-k8s-alb
-    alb.ingress.kubernetes.io/security-groups: "sg-05aba94e9f4b7879b"
+    alb.ingress.kubernetes.io/security-groups: "weather-alb"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-north-1:225317159123:certificate/5e4939fc-e667-41cc-a7cb-dd1a0a3f9db2"
     alb.ingress.kubernetes.io/backend-protocol: "HTTPS"
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
 spec:
