@@ -1,0 +1,62 @@
+resource "aws_route53_record" "app" {
+  zone_id = var.zone_id
+  name    = "${var.environments["prod"].subdomain}.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.k8s.dns_name
+    zone_id                = data.aws_lb.k8s.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "staging" {
+  zone_id = var.zone_id
+  name    = "${var.environments["staging"].subdomain}.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.k8s.dns_name
+    zone_id                = data.aws_lb.k8s.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "dev" {
+  zone_id = var.zone_id
+  name    = "${var.environments["dev"].subdomain}.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.k8s.dns_name
+    zone_id                = data.aws_lb.k8s.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "argocd" {
+  zone_id = var.zone_id
+  name    = "argocd.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.k8s.dns_name
+    zone_id                = data.aws_lb.k8s.zone_id
+    evaluate_target_health = true
+  }
+}
+resource "aws_route53_record" "grafana" {
+  zone_id = var.zone_id
+  name    = "grafana.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.k8s.dns_name
+    zone_id                = data.aws_lb.k8s.zone_id
+    evaluate_target_health = true
+  }
+}
+
+data "aws_lb" "k8s" {
+  name = "weather-k8s-alb"
+}

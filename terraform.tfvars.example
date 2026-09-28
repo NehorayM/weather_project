@@ -1,0 +1,14 @@
+
+
+project     = "weather"
+region      = "eu-north-1"
+vpc_cidr    = "10.0.0.0/16"
+domain_name = "nehorai-menashe.click"
+
+#gitlab_ami_id  = "ami-05bb6993a3ba188bd" old 
+#jenkins_ami_id = "ami-003c25326420dc8f6" old
+gitlab_ami_id     = "ami-07b42ba2c6deff58f"
+jenkins_ami_id    = "ami-0eb22dc9c59dae4a3"
+admin_cidrs       = ["x.x.x.x/32"]
+weather_api_key   = "CHANGE_ME"
+slack_webhook_url = "CHANGE_ME"
