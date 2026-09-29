@@ -10,6 +10,8 @@ wetherApp is the flask app with the Dockerfile and the Jenkinsfile
 
 weather-app-chart is the helm chart and the argocd applications
 
+scripts has what i run every day. apply in the morning and status any time and destroy in the evening. scripts/README.md says when to use each one
+
 ## how it works
 
 jenkins builds the image with buildah and pushes it to ECR
