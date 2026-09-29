@@ -47,7 +47,10 @@ fi
 echo "===> [1/7] VPC..."
 terraform apply -target=module.vpc -auto-approve
 
-echo "===> [2/7] EKS, EC2 from golden AMIs, ECR, LBC and Jenkins agent IAM..."
+# the EBS CSI role and pod identity must be in this stage: the addon is created here and its
+# controller health-checks the EC2 API, so without credentials it crash-loops and the addon
+# stays CREATING until terraform times out
+echo "===> [2/7] EKS, EC2 from golden AMIs, ECR, LBC, EBS CSI and Jenkins agent IAM..."
 terraform apply \
   -target=module.infrastructure.module.eks \
   -target=module.infrastructure.aws_instance.jenkins \
@@ -61,6 +64,9 @@ terraform apply \
   -target=module.infrastructure.aws_iam_role.jenkins_agent \
   -target=module.infrastructure.aws_iam_role_policy_attachment.jenkins_agent \
   -target=module.infrastructure.aws_eks_pod_identity_association.jenkins_agent \
+  -target=module.infrastructure.aws_iam_role.ebs_csi \
+  -target=module.infrastructure.aws_iam_role_policy_attachment.ebs_csi \
+  -target=module.infrastructure.aws_eks_pod_identity_association.ebs_csi \
   -target=module.infrastructure.aws_iam_role_policy_attachment.ec2_ssm \
   -target=module.infrastructure.aws_vpc_security_group_ingress_rule.jenkins_jnlp \
   -auto-approve
