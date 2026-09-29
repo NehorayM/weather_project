@@ -12,7 +12,7 @@ metadata:
     alb.ingress.kubernetes.io/security-groups: "weather-alb"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    alb.ingress.kubernetes.io/backend-protocol: "HTTP"
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
 spec:
   ingressClassName: alb
