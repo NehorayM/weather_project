@@ -26,10 +26,6 @@ ingress:
   # without it you would get one ALB per hostname
   groupName: weather
   groupOrder: 10
-  # paste: terraform output -raw certificate_arn
-  certificateArn: "arn:aws:acm:eu-north-1:225317159123:certificate/5e4939fc-e667-41cc-a7cb-dd1a0a3f9db2"
-  # paste: terraform output -raw alb_security_group_id
-  securityGroupId: "sg-05aba94e9f4b7879b"
 
 resources:
   requests:
