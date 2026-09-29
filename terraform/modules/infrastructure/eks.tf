@@ -105,16 +105,9 @@ module "eks" {
     Name = "${var.project}-eks"
   }
 }
-# agent pod connect to the controller to create agent pods and the controller will connect to the api server to create the agent pods
-resource "aws_vpc_security_group_ingress_rule" "jenkins_jnlp" {
-  security_group_id            = var.jenkins_sg_id
-  referenced_security_group_id = module.eks.node_security_group_id
-  from_port                    = 50000
-  to_port                      = 50000
-  ip_protocol                  = "tcp"
-  description                  = "JNLP from agent pods"
-}
 
+# JNLP 50000 from the agent pods is an inline rule on the jenkins SG in modules/vpc.
+# A standalone rule here was deleted by that SG's inline reconcile on every apply.
 
 
 # pod idientity for the jenkins controller to be able to create agent pods in the eks cluster

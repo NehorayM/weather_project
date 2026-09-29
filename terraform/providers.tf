@@ -26,7 +26,10 @@ provider "aws" {
 
 
 provider "kubernetes" {
-  host                   = "${module.infrastructure.cluster_endpoint}:8443"
+  # the API is private: scripts/tunnel.sh forwards 127.0.0.1:8443 to it through SSM.
+  # tls_server_name keeps the certificate check on the real EKS hostname, so no /etc/hosts entry
+  host                   = "https://127.0.0.1:8443"
+  tls_server_name        = trimprefix(module.infrastructure.cluster_endpoint, "https://")
   cluster_ca_certificate = base64decode(module.infrastructure.cluster_ca)
 
   exec {
@@ -38,7 +41,8 @@ provider "kubernetes" {
 
 provider "helm" {
   kubernetes {
-    host                   = "${module.infrastructure.cluster_endpoint}:8443"
+    host                   = "https://127.0.0.1:8443"
+    tls_server_name        = trimprefix(module.infrastructure.cluster_endpoint, "https://")
     cluster_ca_certificate = base64decode(module.infrastructure.cluster_ca)
 
     exec {
